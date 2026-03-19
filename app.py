@@ -21,7 +21,7 @@ jugadores_base = pd.DataFrame({
 egresos_base = pd.DataFrame({
     "CONCEPTO": ["CAMISETAS", "INSCRIPCIÓN", "DT", "CANCHA ENTRENAMIENTO", "ÁRBITRO Y CANCHA (TORNEO)", "TERCER TIEMPO", "VARIOS (ACLARAR EN WHATSAPP)"],
     "COSTO ESTIMADO": [429000, 200000, 150000, 192000, 200000, 0, 0],
-    "MONTO PAGADO": [0, 0, 0, 0, 0, 0, 0]
+    "MONTO PAGADO": [214500, 0, 0, 0, 0, 0, 0]
 })
 
 # --- 2. CONEXIÓN AL FORMULARIO ---
