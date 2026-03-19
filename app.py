@@ -38,52 +38,48 @@ try:
     df["Detalle / Nombre"] = df["Detalle / Nombre"].astype(str).str.strip().str.upper()
     df["Categoría"] = df["Categoría"].astype(str).str.strip().str.upper()
 
-    # ⏱️ MOTOR DE TIEMPO (NUEVO)
+    # ⏱️ MOTOR DE TIEMPO
     df["Fecha Real"] = pd.to_datetime(df["Marca temporal"], dayfirst=True, errors="coerce")
-    # Extraemos Mes y Año (Ej: "03-2026")
     df["Mes_Año"] = df["Fecha Real"].dt.strftime('%m-%Y')
     
-    # Creamos el selector de meses para la pantalla
+    # Selector de meses
     meses_con_datos = df["Mes_Año"].dropna().unique().tolist()
     mes_actual_str = pd.Timestamp.now(tz='America/Argentina/Buenos_Aires').strftime('%m-%Y')
     
     if mes_actual_str not in meses_con_datos:
         meses_con_datos.append(mes_actual_str)
         
-    # Ordenamos para que el más nuevo esté arriba
     meses_con_datos.sort(reverse=True)
 
-    # Mostramos el selector en la aplicación
     st.write("### 📅 Filtrar por Mes de Gestión")
     mes_seleccionado = st.selectbox("Seleccioná el mes que querés analizar:", meses_con_datos)
     st.divider()
 
-    # Separamos los datos: Todo el historial vs Solo el mes elegido
     df_mensual = df[df["Mes_Año"] == mes_seleccionado]
 
-    # --- 3. CRUCE INTELIGENTE (Histórico vs Mensual) ---
+    # --- 3. CRUCE INTELIGENTE ---
     
-    # SPONSORS (Histórico: Toda la plata que pusieron en el año)
+    # SPONSORS (Histórico)
     for sponsor in sponsors_base["SPONSOR"]:
         plata = df[(df["Tipo de Movimiento"] == "INGRESO") & (df["Detalle / Nombre"] == sponsor)]["Monto"].sum()
         sponsors_base.loc[sponsors_base["SPONSOR"] == sponsor, "MONTO INGRESADO"] = plata
         
-    # JUGADORES (Mensual: Solo me importa si pagó ESTE MES seleccionado)
+    # JUGADORES (Mensual - Tienen que pagar todos los meses)
     for jugador in jugadores_base["JUGADOR"]:
         plata = df_mensual[(df_mensual["Tipo de Movimiento"] == "INGRESO") & (df_mensual["Detalle / Nombre"] == jugador)]["Monto"].sum()
         if plata > 0:
             jugadores_base.loc[jugadores_base["JUGADOR"] == jugador, "ESTADO"] = "PAGO"
             
-    # GASTOS (Mixto: Camisetas es único, el resto se resetea)
-    gastos_unicos = ["CAMISETAS", "INSCRIPCIÓN"]
+    # GASTOS: Acá está el cambio clave que pediste
+    gastos_que_se_resetean = ["DT", "CANCHA ENTRENAMIENTO", "ÁRBITRO Y CANCHA (TORNEO)"]
     
     for gasto in egresos_base["CONCEPTO"]:
-        if gasto in gastos_unicos:
-            # Gasto Único: Suma todo el historial
-            plata = df[(df["Tipo de Movimiento"] == "GASTO") & ((df["Detalle / Nombre"] == gasto) | (df["Categoría"] == gasto))]["Monto"].sum()
-        else:
-            # Gasto Recurrente (DT, Torneo, Cancha): Suma SOLO lo gastado ESTE MES
+        if gasto in gastos_que_se_resetean:
+            # Estos 3 leen solo la plata del mes seleccionado
             plata = df_mensual[(df_mensual["Tipo de Movimiento"] == "GASTO") & ((df_mensual["Detalle / Nombre"] == gasto) | (df_mensual["Categoría"] == gasto))]["Monto"].sum()
+        else:
+            # TODO el resto (Camisetas, Tercer Tiempo, Varios, etc.) suma el acumulado de todo el año
+            plata = df[(df["Tipo de Movimiento"] == "GASTO") & ((df["Detalle / Nombre"] == gasto) | (df["Categoría"] == gasto))]["Monto"].sum()
             
         egresos_base.loc[egresos_base["CONCEPTO"] == gasto, "MONTO PAGADO"] = plata
 
@@ -94,7 +90,6 @@ except Exception as e:
 sponsors_base["FALTA COBRAR"] = sponsors_base["TOTAL ACORDADO"] - sponsors_base["MONTO INGRESADO"]
 egresos_base["FALTA PAGAR"] = egresos_base["COSTO ESTIMADO"] - egresos_base["MONTO PAGADO"]
 
-# Para la CAJA REAL, usamos el flujo histórico de TODO el tiempo
 if 'df' in locals():
     caja_historica_ingresos = df[df["Tipo de Movimiento"] == "INGRESO"]["Monto"].sum()
     caja_historica_gastos = df[df["Tipo de Movimiento"] == "GASTO"]["Monto"].sum()
@@ -102,7 +97,6 @@ if 'df' in locals():
 else:
     saldo_caja_real = 0
 
-# Para el balance mensual, usamos solo la plata del mes
 if 'df_mensual' in locals():
     ingreso_mes = df_mensual[df_mensual["Tipo de Movimiento"] == "INGRESO"]["Monto"].sum()
     gasto_mes = df_mensual[df_mensual["Tipo de Movimiento"] == "GASTO"]["Monto"].sum()
@@ -110,7 +104,7 @@ if 'df_mensual' in locals():
 
 
 # --- 5. DISEÑO DE LAS PESTAÑAS ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["💰 Caja General", "📉 Gastos del Mes", "👕 Plantel (Cuotas)", "📈 Sponsors (Anual)", "📓 Historial"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["💰 Caja General", "📉 Gastos", "👕 Plantel", "📈 Sponsors", "📓 Historial"])
 
 with tab1:
     st.header("Caja Fuerte (Dinero Real Guardado)")
@@ -120,20 +114,18 @@ with tab1:
     
     if 'df_mensual' in locals():
         st.subheader(f"Balance de {mes_seleccionado}")
-        st.write("Cómo venimos operativamente este mes:")
         col1, col2, col3 = st.columns(3)
         col1.metric("Recaudado este mes", f"${ingreso_mes:,.0f}")
         col2.metric("Gastado este mes", f"${gasto_mes:,.0f}")
-        col3.metric("Saldo del mes", f"${saldo_mes:,.0f}")
+        col3.metric("Resultado del mes", f"${saldo_mes:,.0f}")
 
 with tab2:
-    st.subheader(f"Presupuesto Operativo ({mes_seleccionado})")
-    st.write("Camisetas e Inscripción muestran el acumulado de todo el año. El resto se resetea a cero cada mes.")
+    st.subheader(f"Estado de Gastos al mes de {mes_seleccionado}")
+    st.write("DT y Canchas se resetean mensualmente. El resto acumula el total histórico.")
     st.dataframe(egresos_base, hide_index=True, use_container_width=True)
 
 with tab3:
     st.subheader(f"Estado de Cuotas ({mes_seleccionado})")
-    st.write("Jugadores que pagaron la cuota en el mes seleccionado.")
     st.dataframe(jugadores_base.sort_values(by="DORSAL"), hide_index=True, use_container_width=True)
 
 with tab4:
@@ -143,6 +135,5 @@ with tab4:
 with tab5:
     st.subheader("Todos los movimientos (Desde Formulario)")
     if 'df' in locals():
-        # Ocultamos las columnas internas de cálculo de fecha
         cols_mostrar = [c for c in df.columns if c not in ["Fecha Real", "Mes_Año"]]
         st.dataframe(df[cols_mostrar], hide_index=True, use_container_width=True)
