@@ -5,93 +5,83 @@ import pandas as pd
 st.set_page_config(page_title="Finanzas del Equipo", page_icon="⚽", layout="centered")
 st.title("⚽ Gestión del Equipo")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["💰 Resumen", "📈 Ingresos", "📉 Egresos", "👕 Plantel", "📅 Proyección"])
+# --- CONEXIÓN A GOOGLE SHEETS (TU BÓVEDA) ---
+# Este es tu link transformado mágicamente a CSV para que Python lo lea
+sheet_url = "https://docs.google.com/spreadsheets/d/1S8O8ibkWjLofoS2JPPuZH3boQ88aKaY77a4fF0RSk5Y/export?format=csv"
 
-# --- CARGA DE DATOS ---
+try:
+    # Leemos los datos en vivo
+    df = pd.read_csv(sheet_url)
+    
+    # Limpiamos un poco los nombres de las columnas por si tienen espacios
+    df.columns = df.columns.str.strip()
+    
+    # Nos aseguramos de que la columna Monto sea numérica (y si está vacía, le ponemos 0)
+    df["Monto"] = pd.to_numeric(df["Monto"], errors="coerce").fillna(0)
 
-# Sponsors
-sponsors_data = pd.DataFrame({
-    "SPONSOR": ["GAP PRODUCCIONES", "ELICARS", "RAMA", "MATAFUEGOS SAN MIGUEL", "DILASCIO LEGALES"],
-    "TOTAL ACORDADO": [300000, 200000, 100000, 100000, 100000],
-    "MONTO INGRESADO": [214500, 0, 0, 0, 0] 
-})
-sponsors_data["FALTA COBRAR"] = sponsors_data["TOTAL ACORDADO"] - sponsors_data["MONTO INGRESADO"]
-plata_real_sponsors = sponsors_data["MONTO INGRESADO"].sum()
+except Exception as e:
+    st.error("⚠️ Todavía no hay datos cargados o hay un problema leyendo el Excel. Cargá el primer pago en tu Formulario para inicializar el sistema.")
+    st.stop()
 
-# Jugadores
-jugadores_data = pd.DataFrame({
-    "DORSAL": [1, 5, 8, 9, 10, 11, 12, 15, 19, 22, 26, 27, 33],
-    "JUGADOR": ["ALVARO", "LUCAS", "RIOS", "ELIAS", "EMILIO", "IVAN", "MARCOS", "MIGUEL", "FELICE", "MOTHE", "JUAN X", "GABO", "CHARLY"],
-    "ESTADO": ["PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE"] 
-})
-jugadores_al_dia = len(jugadores_data[jugadores_data["ESTADO"] == "PAGO"])
-plata_real_cuotas = jugadores_al_dia * 35000
+# --- CÁLCULOS AUTOMÁTICOS ---
+# Separamos la plata que entra de la plata que sale
+ingresos = df[df["Tipo de Movimiento"] == "Ingreso"]
+gastos = df[df["Tipo de Movimiento"] == "Gasto"]
 
-# Egresos (Actualizado con Cancha a $48.000 x 4 semanas)
-egresos_data = pd.DataFrame({
-    "CONCEPTO": ["CAMISETAS (Única vez)", "INSCRIPCIÓN (Única vez)", "DT (Mensual)", "CANCHA (4 x $48.000)", "PARTIDOS (4 x $50.000)"],
-    "COSTO TOTAL": [429000, 200000, 150000, 192000, 200000],
-    "MONTO PAGADO": [214500, 50000, 0, 0, 0] 
-})
-egresos_data["FALTA PAGAR"] = egresos_data["COSTO TOTAL"] - egresos_data["MONTO PAGADO"]
-gastos_reales_pagados = egresos_data["MONTO PAGADO"].sum()
-
+total_ingresos = ingresos["Monto"].sum()
+total_gastos = gastos["Monto"].sum()
+saldo_caja = total_ingresos - total_gastos
 
 # --- DISEÑO DE LAS PESTAÑAS ---
+tab1, tab2, tab3, tab4 = st.tabs(["💰 Resumen General", "📈 Ingresos", "📉 Gastos", "📓 Historial de Movimientos"])
 
 with tab1:
     st.header("Caja Real (Dinero en Mano)")
-    ingresos_reales_totales = plata_real_sponsors + plata_real_cuotas
-    saldo_real = ingresos_reales_totales - gastos_reales_pagados
     
     col1, col2, col3 = st.columns(3)
-    col1.metric("Plata que Entró", f"${ingresos_reales_totales:,.0f}")
-    col2.metric("Plata que Salió", f"${gastos_reales_pagados:,.0f}")
-    col3.metric("SALDO EN CAJA", f"${saldo_real:,.0f}")
+    col1.metric("Plata que Entró", f"${total_ingresos:,.0f}")
+    col2.metric("Plata que Salió", f"${total_gastos:,.0f}")
+    
+    # Mostramos el saldo en verde si es positivo, o en rojo si estamos en deuda
+    if saldo_caja >= 0:
+        col3.metric("SALDO EN CAJA", f"${saldo_caja:,.0f}")
+    else:
+        col3.metric("SALDO EN CAJA", f"${saldo_caja:,.0f}", "- EN ROJO")
     
     st.divider()
-    st.write("⚠️ **Alertas Financieras:**")
-    st.warning(f"Plata en la calle (Falta cobrar de Sponsors): **${sponsors_data['FALTA COBRAR'].sum():,.0f}**")
-    st.error(f"Deudas pendientes (Falta pagar de Gastos): **${egresos_data['FALTA PAGAR'].sum():,.0f}**")
+    
+    # Un gráfico de torta rápido para ver en qué se nos va la plata
+    if not gastos.empty:
+        st.subheader("¿En qué gastamos la plata?")
+        gastos_agrupados = gastos.groupby("Categoría")["Monto"].sum().reset_index()
+        st.bar_chart(gastos_agrupados.set_index("Categoría"))
 
 with tab2:
-    st.subheader("Estado de Sponsors")
-    st.dataframe(sponsors_data, hide_index=True, use_container_width=True)
-    st.info(f"Cuotas cobradas: {jugadores_al_dia} de 13 jugadores (**${plata_real_cuotas:,.0f}**)")
+    st.subheader("Detalle de Ingresos")
+    if ingresos.empty:
+        st.info("No hay ingresos registrados todavía.")
+    else:
+        # Agrupamos por categoría (Sponsors vs Cuotas)
+        resumen_ingresos = ingresos.groupby("Categoría")["Monto"].sum().reset_index()
+        st.dataframe(resumen_ingresos, hide_index=True, use_container_width=True)
+        
+        st.write("**Detalle uno por uno:**")
+        st.dataframe(ingresos[["Marca temporal", "Categoría", "Detalle / Nombre", "Monto"]], hide_index=True, use_container_width=True)
 
 with tab3:
-    st.subheader("Estado de Cuentas a Pagar")
-    st.dataframe(egresos_data, hide_index=True, use_container_width=True)
+    st.subheader("Detalle de Gastos")
+    if gastos.empty:
+        st.info("No hay gastos registrados todavía.")
+    else:
+        # Agrupamos por categoría (Cancha, DT, Torneo, etc)
+        resumen_gastos = gastos.groupby("Categoría")["Monto"].sum().reset_index()
+        st.dataframe(resumen_gastos, hide_index=True, use_container_width=True)
+        
+        st.write("**Detalle uno por uno:**")
+        st.dataframe(gastos[["Marca temporal", "Categoría", "Detalle / Nombre", "Monto"]], hide_index=True, use_container_width=True)
 
 with tab4:
-    st.subheader("Lista de Jugadores")
-    st.dataframe(jugadores_data.sort_values(by="DORSAL"), hide_index=True, use_container_width=True)
-
-with tab5:
-    st.header("Proyección de Caja (Próximo Mes)")
-    st.write("Cómo se va a consumir el dinero semana a semana para no quedar en rojo.")
-    
-    # Simulador del mes con Cancha Semanal
-    proyeccion_data = pd.DataFrame({
-        "Semana": ["Semana 1", "Semana 2", "Semana 3", "Semana 4"],
-        "Ingresos (Cuotas)": [455000, 0, 0, 0],
-        "DT (Mensual)": [-150000, 0, 0, 0],
-        "Cancha (Semanal)": [-48000, -48000, -48000, -48000],
-        "Partidos (Semanal)": [-50000, -50000, -50000, -50000]
-    })
-    
-    # Calculamos el flujo de cada semana sumando todas las columnas
-    proyeccion_data["Flujo Neto"] = proyeccion_data["Ingresos (Cuotas)"] + proyeccion_data["DT (Mensual)"] + proyeccion_data["Cancha (Semanal)"] + proyeccion_data["Partidos (Semanal)"]
-    
-    # Calculamos cuánta plata queda en el bolsillo al final de cada semana
-    proyeccion_data["Bolsillo (Acumulado)"] = proyeccion_data["Flujo Neto"].cumsum()
-    
-    # 1. Mostramos el gráfico visual (la escalera que va bajando)
-    st.subheader("Evolución del dinero en el mes")
-    st.line_chart(proyeccion_data, x="Semana", y="Bolsillo (Acumulado)", color="#FF4B4B")
-    
-    # 2. Mostramos la tabla detallada
-    st.dataframe(proyeccion_data, hide_index=True, use_container_width=True)
-    
-    # 3. Alerta de déficit real
-    st.error(f"⚠️ Alerta: El ingreso por cuotas ($455.000) no llega a cubrir los gastos operativos del mes ($542.000). Déficit mensual: **${proyeccion_data['Flujo Neto'].sum():,.0f}**. Se debe cubrir con fondo de sponsors.")
+    st.subheader("El Libro Diario (Todos los movimientos)")
+    st.write("Acá se ve todo lo que cargás en el formulario, ordenado del más viejo al más nuevo.")
+    # Mostramos el Excel crudo pero lindo
+    st.dataframe(df, hide_index=True, use_container_width=True)
