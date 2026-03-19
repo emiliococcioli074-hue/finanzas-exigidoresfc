@@ -17,11 +17,10 @@ jugadores_base = pd.DataFrame({
     "ESTADO": ["PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE"]
 })
 
-# Nombres idénticos a los que pusiste en el menú desplegable del formulario
 egresos_base = pd.DataFrame({
     "CONCEPTO": ["CAMISETAS", "INSCRIPCIÓN", "DT", "CANCHA ENTRENAMIENTO", "ÁRBITRO Y CANCHA (TORNEO)", "TERCER TIEMPO", "VARIOS (ACLARAR EN WHATSAPP)"],
     "COSTO ESTIMADO": [429000, 200000, 150000, 192000, 200000, 0, 0],
-    "MONTO PAGADO": [214500, 0, 0, 0, 0, 0, 0]
+    "MONTO PAGADO": [0, 0, 0, 0, 0, 0, 0]
 })
 
 # --- 2. CONEXIÓN AL FORMULARIO ---
@@ -29,37 +28,37 @@ sheet_url = "https://docs.google.com/spreadsheets/d/1S8O8ibkWjLofoS2JPPuZH3boQ88
 
 try:
     df = pd.read_csv(sheet_url)
-    
-    # LIMPIEZA EXTREMA: Forzamos todo a mayúsculas y sin espacios para que no falle el cruce
     df.columns = df.columns.str.strip()
+    
+    # 🛡️ LIMPIEZA ANTIBALAS: Borramos signos $ y puntos para que la suma jamás falle
+    df["Monto"] = df["Monto"].astype(str).str.replace("$", "", regex=False).str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
     df["Monto"] = pd.to_numeric(df["Monto"], errors="coerce").fillna(0)
     
+    # Forzamos mayúsculas
     df["Tipo de Movimiento"] = df["Tipo de Movimiento"].astype(str).str.strip().str.upper()
-    df["Categoría"] = df["Categoría"].astype(str).str.strip().str.upper()
     df["Detalle / Nombre"] = df["Detalle / Nombre"].astype(str).str.strip().str.upper()
+    df["Categoría"] = df["Categoría"].astype(str).str.strip().str.upper()
     
-    # --- 3. EL CRUCE DE DATOS BLINDADO ---
+    # --- 3. CRUCE INTELIGENTE Y SIMPLIFICADO ---
     
-    # A. Buscar ingresos de Sponsors
-    ingresos_sponsors = df[(df["Tipo de Movimiento"] == "INGRESO") & (df["Categoría"].str.contains("SPONSOR", na=False))]
-    for index, row in ingresos_sponsors.iterrows():
-        nombre_form = row["Detalle / Nombre"]
-        sponsors_base.loc[sponsors_base["SPONSOR"] == nombre_form, "MONTO INGRESADO"] += row["Monto"]
-
-    # B. Buscar cuotas de Jugadores
-    ingresos_jugadores = df[(df["Tipo de Movimiento"] == "INGRESO") & (df["Categoría"].str.contains("CUOTA", na=False))]
-    for index, row in ingresos_jugadores.iterrows():
-        nombre_form = row["Detalle / Nombre"]
-        jugadores_base.loc[jugadores_base["JUGADOR"] == nombre_form, "ESTADO"] = "PAGO"
-
-    # C. Buscar gastos y sumarlos al presupuesto
-    gastos = df[df["Tipo de Movimiento"] == "GASTO"]
-    for index, row in gastos.iterrows():
-        nombre_gasto = row["Detalle / Nombre"]  # Ahora busca el gasto directo desde la lista desplegable
-        egresos_base.loc[egresos_base["CONCEPTO"] == nombre_gasto, "MONTO PAGADO"] += row["Monto"]
+    # SPONSORS (Busca el nombre exacto y suma la plata)
+    for sponsor in sponsors_base["SPONSOR"]:
+        plata = df[(df["Tipo de Movimiento"] == "INGRESO") & (df["Detalle / Nombre"] == sponsor)]["Monto"].sum()
+        sponsors_base.loc[sponsors_base["SPONSOR"] == sponsor, "MONTO INGRESADO"] = plata
+        
+    # JUGADORES (Si la suma del jugador es mayor a cero, está pago)
+    for jugador in jugadores_base["JUGADOR"]:
+        plata = df[(df["Tipo de Movimiento"] == "INGRESO") & (df["Detalle / Nombre"] == jugador)]["Monto"].sum()
+        if plata > 0:
+            jugadores_base.loc[jugadores_base["JUGADOR"] == jugador, "ESTADO"] = "PAGO"
+            
+    # GASTOS (Busca el gasto tanto en Categoría como en Nombre por las dudas)
+    for gasto in egresos_base["CONCEPTO"]:
+        plata = df[(df["Tipo de Movimiento"] == "GASTO") & ((df["Detalle / Nombre"] == gasto) | (df["Categoría"] == gasto))]["Monto"].sum()
+        egresos_base.loc[egresos_base["CONCEPTO"] == gasto, "MONTO PAGADO"] = plata
 
 except Exception as e:
-    st.warning("El sistema está conectado, pero espera que se carguen movimientos compatibles.")
+    st.warning("El historial está conectado, esperando movimientos.")
 
 
 # --- 4. CÁLCULOS FINALES ---
