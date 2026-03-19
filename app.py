@@ -4,6 +4,8 @@ import pandas as pd
 st.set_page_config(page_title="Finanzas del Equipo", page_icon="⚽", layout="centered")
 st.title("⚽ Gestión del Equipo")
 
+CUOTA_MENSUAL = 40000
+
 # --- 1. BASE DE DATOS FIJA ---
 sponsors_base = pd.DataFrame({
     "SPONSOR": ["GAP PRODUCCIONES", "ELICARS", "RAMA", "MATAFUEGOS SAN MIGUEL", "DILASCIO LEGALES"],
@@ -11,10 +13,11 @@ sponsors_base = pd.DataFrame({
     "MONTO INGRESADO": [0, 0, 0, 0, 0] 
 })
 
+# Ahora los jugadores arrancan con 0 pesos pagados en vez de un "Estado" fijo
 jugadores_base = pd.DataFrame({
     "DORSAL": [1, 5, 8, 9, 10, 11, 12, 15, 19, 22, 26, 27, 33],
     "JUGADOR": ["ALVARO", "LUCAS", "RIOS", "ELIAS", "EMILIO", "IVAN", "MARCOS", "MIGUEL", "FELICE", "MOTHE", "JUAN X", "GABO", "CHARLY"],
-    "ESTADO": ["PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE", "PENDIENTE"]
+    "MONTO PAGADO": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 })
 
 egresos_base = pd.DataFrame({
@@ -64,21 +67,18 @@ try:
         plata = df[(df["Tipo de Movimiento"] == "INGRESO") & (df["Detalle / Nombre"] == sponsor)]["Monto"].sum()
         sponsors_base.loc[sponsors_base["SPONSOR"] == sponsor, "MONTO INGRESADO"] = plata
         
-    # JUGADORES (Mensual - Tienen que pagar todos los meses)
+    # JUGADORES (Mensual - Sumamos toda la plata que entregaron este mes)
     for jugador in jugadores_base["JUGADOR"]:
         plata = df_mensual[(df_mensual["Tipo de Movimiento"] == "INGRESO") & (df_mensual["Detalle / Nombre"] == jugador)]["Monto"].sum()
-        if plata > 0:
-            jugadores_base.loc[jugadores_base["JUGADOR"] == jugador, "ESTADO"] = "PAGO"
+        jugadores_base.loc[jugadores_base["JUGADOR"] == jugador, "MONTO PAGADO"] = plata
             
-    # GASTOS: Acá está el cambio clave que pediste
+    # GASTOS: Reseteo inteligente
     gastos_que_se_resetean = ["DT", "CANCHA ENTRENAMIENTO", "ÁRBITRO Y CANCHA (TORNEO)"]
     
     for gasto in egresos_base["CONCEPTO"]:
         if gasto in gastos_que_se_resetean:
-            # Estos 3 leen solo la plata del mes seleccionado
             plata = df_mensual[(df_mensual["Tipo de Movimiento"] == "GASTO") & ((df_mensual["Detalle / Nombre"] == gasto) | (df_mensual["Categoría"] == gasto))]["Monto"].sum()
         else:
-            # TODO el resto (Camisetas, Tercer Tiempo, Varios, etc.) suma el acumulado de todo el año
             plata = df[(df["Tipo de Movimiento"] == "GASTO") & ((df["Detalle / Nombre"] == gasto) | (df["Categoría"] == gasto))]["Monto"].sum()
             
         egresos_base.loc[egresos_base["CONCEPTO"] == gasto, "MONTO PAGADO"] = plata
@@ -90,6 +90,22 @@ except Exception as e:
 sponsors_base["FALTA COBRAR"] = sponsors_base["TOTAL ACORDADO"] - sponsors_base["MONTO INGRESADO"]
 egresos_base["FALTA PAGAR"] = egresos_base["COSTO ESTIMADO"] - egresos_base["MONTO PAGADO"]
 
+# Cálculo de Cuotas de Jugadores
+jugadores_base["DEUDA"] = CUOTA_MENSUAL - jugadores_base["MONTO PAGADO"]
+jugadores_base.loc[jugadores_base["DEUDA"] < 0, "DEUDA"] = 0 # Si alguien paga de más, la deuda no es negativa
+
+# Función para ponerle la etiqueta automática a cada jugador
+def estado_cuota(monto):
+    if monto >= CUOTA_MENSUAL:
+        return "AL DÍA ✅"
+    elif monto > 0:
+        return "PAGO PARCIAL ⏳"
+    else:
+        return "PENDIENTE ❌"
+
+jugadores_base["ESTADO"] = jugadores_base["MONTO PAGADO"].apply(estado_cuota)
+
+# Cálculos de Caja General
 if 'df' in locals():
     caja_historica_ingresos = df[df["Tipo de Movimiento"] == "INGRESO"]["Monto"].sum()
     caja_historica_gastos = df[df["Tipo de Movimiento"] == "GASTO"]["Monto"].sum()
@@ -126,7 +142,10 @@ with tab2:
 
 with tab3:
     st.subheader(f"Estado de Cuotas ({mes_seleccionado})")
-    st.dataframe(jugadores_base.sort_values(by="DORSAL"), hide_index=True, use_container_width=True)
+    st.write(f"Valor de la cuota mensual: **${CUOTA_MENSUAL:,.0f}**")
+    
+    # Ordenamos la tabla para ver primero a los que deben y al final a los que están al día
+    st.dataframe(jugadores_base.sort_values(by=["DEUDA", "DORSAL"], ascending=[False, True]), hide_index=True, use_container_width=True)
 
 with tab4:
     st.subheader("Estado de Sponsors (Todo el año)")
