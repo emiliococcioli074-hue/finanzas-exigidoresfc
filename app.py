@@ -31,7 +31,7 @@ plata_real_cuotas = jugadores_al_dia * 35000
 egresos_data = pd.DataFrame({
     "CONCEPTO": ["CAMISETAS (Única vez)", "INSCRIPCIÓN (Única vez)", "DT (Mensual)", "CANCHA (4 x $48.000)", "PARTIDOS (4 x $50.000)"],
     "COSTO TOTAL": [429000, 200000, 150000, 192000, 200000],
-    "MONTO PAGADO": [200000, 0, 0, 0, 0] 
+    "MONTO PAGADO": [200000, 50000, 0, 0, 0] 
 })
 egresos_data["FALTA PAGAR"] = egresos_data["COSTO TOTAL"] - egresos_data["MONTO PAGADO"]
 gastos_reales_pagados = egresos_data["MONTO PAGADO"].sum()
