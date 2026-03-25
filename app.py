@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="Finanzas del Equipo", page_icon="⚽", layout="centered")
 st.title("⚽ Gestión del Equipo")
 
-CUOTA_MENSUAL = 40000
+CUOTA_MENSUAL = 41000
 
 # --- 1. BASE DE DATOS FIJA ---
 sponsors_base = pd.DataFrame({
