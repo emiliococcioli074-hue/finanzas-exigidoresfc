@@ -14,7 +14,7 @@ with col_logo:
         st.markdown("<h1 style='text-align: center;'>🛡️</h1>", unsafe_allow_html=True)
 
 with col_nombre:
-    st.markdown("<h1 style='margin-bottom: 0px;'>Exigidores FC FC</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='margin-bottom: 0px;'>Exigidores FC</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color: gray; font-size: 18px;'>Portal Oficial de Transparencia y Gestión</p>", unsafe_allow_html=True)
 
 st.divider()
