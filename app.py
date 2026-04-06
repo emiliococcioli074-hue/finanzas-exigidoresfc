@@ -227,11 +227,12 @@ with tab5:
     # Datos de prueba visual
     resultados_simulados = pd.DataFrame({
         "FECHA": ["03/03/2026"],
-        "RIVAL": ["LA AMERICA"],
+        "RIVAL": ["LA AMERICA"], 
         "GF": [4],
         "GC": [6],
-        "RESULTADO": ["✅ Victoria", "➖ Empate", "❌ Derrota"],
-        "GOLEADORES": ["GABO(2), IVANCHU", "EMILIO", "-"],
+        "RESULTADO": ["❌ Derrota"],
+        "GOLEADORES": ["Gabo (2), Ivanchu, Emilio"] # 
+    })
     })
     
     st.dataframe(resultados_simulados, hide_index=True, use_container_width=True)
