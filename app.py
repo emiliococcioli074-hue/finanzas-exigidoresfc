@@ -222,7 +222,7 @@ with tab4:
 
 with tab5:
     st.subheader("⚽ Historial Deportivo")
-    st.write("Resumen de partidos y estadísticas del torneo. (Para automatizar esto a futuro, podés crear una pestaña llamada 'RESULTADOS' en tu Google Sheets)")
+    st.write("Resumen de partidos y estadísticas del torneo.)
     
     # Datos de prueba visual
     resultados_simulados = pd.DataFrame({
