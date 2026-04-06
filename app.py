@@ -13,7 +13,6 @@ sponsors_base = pd.DataFrame({
     "MONTO INGRESADO": [0, 0, 0, 0, 0] 
 })
 
-# Ahora los jugadores arrancan con 0 pesos pagados en vez de un "Estado" fijo
 jugadores_base = pd.DataFrame({
     "DORSAL": [1, 5, 8, 9, 10, 11, 12, 15, 19, 22, 26, 27, 33],
     "JUGADOR": ["ALVARO", "LUCAS", "RIOS", "ELIAS", "EMILIO", "IVAN", "MARCOS", "MIGUEL", "FELICE", "MOTHE", "JUAN X", "GABO", "CHARLY"],
@@ -27,7 +26,8 @@ egresos_base = pd.DataFrame({
 })
 
 # --- 2. CONEXIÓN AL FORMULARIO ---
-sheet_url = "https://docs.google.com/spreadsheets/d/1gETPp5vu-tWJkMPSHRcrsl5XLuK3nKxtW5stVmO5y80/edit?usp=sharing"
+# EL TRUCO ESTÁ ACÁ: Cambiar "/edit?usp=sharing" por "/export?format=csv"
+sheet_url = "https://docs.google.com/spreadsheets/d/1gETPp5vu-tWJkMPSHRcrsl5XLuK3nKxtW5stVmO5y80/export?format=csv"
 
 try:
     df = pd.read_csv(sheet_url)
@@ -67,7 +67,7 @@ try:
         plata = df[(df["Tipo de Movimiento"] == "INGRESO") & (df["Detalle / Nombre"] == sponsor)]["Monto"].sum()
         sponsors_base.loc[sponsors_base["SPONSOR"] == sponsor, "MONTO INGRESADO"] = plata
         
-    # JUGADORES (Mensual - Sumamos toda la plata que entregaron este mes)
+    # JUGADORES (Mensual)
     for jugador in jugadores_base["JUGADOR"]:
         plata = df_mensual[(df_mensual["Tipo de Movimiento"] == "INGRESO") & (df_mensual["Detalle / Nombre"] == jugador)]["Monto"].sum()
         jugadores_base.loc[jugadores_base["JUGADOR"] == jugador, "MONTO PAGADO"] = plata
@@ -84,7 +84,8 @@ try:
         egresos_base.loc[egresos_base["CONCEPTO"] == gasto, "MONTO PAGADO"] = plata
 
 except Exception as e:
-    st.warning("El sistema está conectado, esperando movimientos.")
+    # Agregué 'e' para que veas el error real si llega a fallar algo de las columnas
+    st.warning(f"Esperando movimientos o revisando conexión. Detalle técnico: {e}")
 
 # --- 4. CÁLCULOS FINALES ---
 sponsors_base["FALTA COBRAR"] = sponsors_base["TOTAL ACORDADO"] - sponsors_base["MONTO INGRESADO"]
@@ -92,9 +93,8 @@ egresos_base["FALTA PAGAR"] = egresos_base["COSTO ESTIMADO"] - egresos_base["MON
 
 # Cálculo de Cuotas de Jugadores
 jugadores_base["DEUDA"] = CUOTA_MENSUAL - jugadores_base["MONTO PAGADO"]
-jugadores_base.loc[jugadores_base["DEUDA"] < 0, "DEUDA"] = 0 # Si alguien paga de más, la deuda no es negativa
+jugadores_base.loc[jugadores_base["DEUDA"] < 0, "DEUDA"] = 0 
 
-# Función para ponerle la etiqueta automática a cada jugador
 def estado_cuota(monto):
     if monto >= CUOTA_MENSUAL:
         return "AL DÍA ✅"
@@ -144,7 +144,6 @@ with tab3:
     st.subheader(f"Estado de Cuotas ({mes_seleccionado})")
     st.write(f"Valor de la cuota mensual: **${CUOTA_MENSUAL:,.0f}**")
     
-    # Ordenamos la tabla para ver primero a los que deben y al final a los que están al día
     st.dataframe(jugadores_base.sort_values(by=["DEUDA", "DORSAL"], ascending=[False, True]), hide_index=True, use_container_width=True)
 
 with tab4:
