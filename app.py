@@ -9,12 +9,12 @@ col_logo, col_nombre = st.columns([1, 6])
 with col_logo:
     try:
         # Busca el archivo directamente en tu GitHub
-        st.image("logo_equipo.png", width=120)
+        st.image("logo_equipo.jpeg", width=120)
     except:
         st.markdown("<h1 style='text-align: center;'>🛡️</h1>", unsafe_allow_html=True)
 
 with col_nombre:
-    st.markdown("<h1 style='margin-bottom: 0px;'>Tus Guerreros FC</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='margin-bottom: 0px;'>Exigidores FC FC</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color: gray; font-size: 18px;'>Portal Oficial de Transparencia y Gestión</p>", unsafe_allow_html=True)
 
 st.divider()
