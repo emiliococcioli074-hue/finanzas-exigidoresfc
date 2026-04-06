@@ -27,7 +27,7 @@ egresos_base = pd.DataFrame({
 })
 
 # --- 2. CONEXIÓN AL FORMULARIO ---
-sheet_url = "https://docs.google.com/spreadsheets/d/1S8O8ibkWjLofoS2JPPuZH3boQ88aKaY77a4fF0RSk5Y/export?format=csv"
+sheet_url = "https://docs.google.com/spreadsheets/d/1gETPp5vu-tWJkMPSHRcrsl5XLuK3nKxtW5stVmO5y80/edit?usp=sharing"
 
 try:
     df = pd.read_csv(sheet_url)
